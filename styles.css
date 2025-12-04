@@ -125,3 +125,14 @@ td, th {
 .topBtn:hover {
     background: var(--cell-hover);
 }
+.cell.userClick {
+    background-color: #4CAF50; /* green */
+    color: white;
+    transition: background-color 0.3s;
+}
+
+.cell.userClickLast {
+    background-color: #2196F3; /* blue */
+    color: white;
+    transition: background-color 0.3s;
+}

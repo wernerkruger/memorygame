@@ -8,19 +8,32 @@
 
 <!-- Firebase setup -->
 <script type="module" src="firebase.js"></script>
+
+<style>
+/* ----- Add these styles for click feedback ----- */
+.cell.userClick {
+    background-color: #4CAF50; /* green */
+    color: white;
+    transition: background-color 0.3s;
+}
+
+.cell.userClickLast {
+    background-color: #2196F3; /* blue */
+    color: white;
+    transition: background-color 0.3s;
+}
+</style>
+
 </head>
 <body>
 
 <div id="topButtons">
     <span class="topBtn" id="toggleSound">Sound: ON</span>
     <span class="topBtn" id="toggleTheme">Theme: Dark</span>
-</div>
-<div>
     <label for="piStart">Start PI from digit:</label>
     <input type="number" id="piStart" min="0" max="1000" value="0" style="width:60px">    
 </div>
-<br>
-<hr>
+
 <div id="layout">
 
     <!-- LEFT: RANDOM HIGH SCORES -->
@@ -241,7 +254,7 @@ function resetGame() {
     message.textContent = "Game reset.";
 }
 
-// ------------------- CLICK HANDLER -------------------
+// ------------------- CLICK HANDLER WITH HIGHLIGHTS -------------------
 grid.addEventListener("click", (e) => {
     const cell = e.target;
     const val = cell.dataset.value;
@@ -250,6 +263,13 @@ grid.addEventListener("click", (e) => {
     playBeepForDigit(Number(val));
 
     if (Number(val) === sequence[userIndex]) {
+        // Determine if this is the last digit in the sequence
+        const isLast = userIndex === sequence.length - 1;
+        cell.classList.add(isLast ? "userClickLast" : "userClick");
+
+        // Remove highlight after 400ms
+        setTimeout(() => cell.classList.remove(isLast ? "userClickLast" : "userClick"), 400);
+
         userIndex++;
         if (userIndex === sequence.length) {
             correctThisSession++; // Completed one sequence in this session
