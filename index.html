@@ -14,6 +14,8 @@
 <div id="topButtons">
     <span class="topBtn" id="toggleSound">Sound: ON</span>
     <span class="topBtn" id="toggleTheme">Theme: Dark</span>
+    <label for="piStart">Start PI from digit:</label>
+    <input type="number" id="piStart" min="0" max="1000" value="0" style="width:60px">    
 </div>
 
 <div id="layout">
@@ -62,7 +64,6 @@ async function fetchScores(mode) {
 async function submitScore(score, mode) {
     const name = prompt("You made the top 10! Enter your name:") || "Anonymous";
     const col = collection(db, mode === "pi" ? "highscores_pi" : "highscores_random");
-
     await addDoc(col, { name, score });
     await loadAndRenderTables();
 }
@@ -137,10 +138,11 @@ let userIndex = 0;
 let acceptingInput = false;
 let currentStreak = 0;
 let piMode = false;
+let correctThisSession = 0;
 
 const PI_DIGITS = "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819";  
 
-// Build grid
+// Build grid 0-9
 [...Array(10).keys()].forEach(n => {
     const c = document.createElement("div");
     c.className = "cell";
@@ -148,6 +150,8 @@ const PI_DIGITS = "3141592653589793238462643383279502884197169399375105820974944
     c.dataset.value = n;
     grid.appendChild(c);
 });
+
+// Control buttons
 function addButton(id, label) {
     const b = document.createElement("div");
     b.className = "cell";
@@ -188,7 +192,7 @@ function addDigit() {
         : Math.floor(Math.random() * 10);
 
     sequence.push(next);
-    currentStreak = sequence.length - 1;
+    currentStreak = sequence.length;
     currentStreakEl.textContent = currentStreak;
 
     playSequence();
@@ -202,8 +206,25 @@ function startGame(random = true) {
     userIndex = 0;
     currentStreak = 0;
     currentStreakEl.textContent = 0;
+    correctThisSession = 0;
 
-    message.textContent = piMode ? "PI Mode" : "Random Mode";
+    if (piMode) {
+        const nInput = document.getElementById("piStart");
+        let N = parseInt(nInput.value) || 0;
+        if (N < 0) N = 0;
+        if (N > PI_DIGITS.length) N = PI_DIGITS.length;
+
+        for (let i = 0; i < N; i++) {
+            sequence.push(Number(PI_DIGITS[i]));
+        }
+        currentStreak = N;
+        currentStreakEl.textContent = currentStreak;
+
+        message.textContent = `PI Mode starting from digit ${N + 1}`;
+    } else {
+        message.textContent = "Random Mode";
+    }
+
     addDigit();
 }
 
@@ -212,11 +233,12 @@ function resetGame() {
     userIndex = 0;
     currentStreak = 0;
     currentStreakEl.textContent = 0;
+    correctThisSession = 0;
     acceptingInput = false;
     message.textContent = "Game reset.";
 }
 
-// Click handling
+// ------------------- CLICK HANDLER -------------------
 grid.addEventListener("click", (e) => {
     const cell = e.target;
     const val = cell.dataset.value;
@@ -227,17 +249,24 @@ grid.addEventListener("click", (e) => {
     if (Number(val) === sequence[userIndex]) {
         userIndex++;
         if (userIndex === sequence.length) {
+            correctThisSession++; // Completed one sequence in this session
             userIndex = 0;
             message.textContent = "Correct!";
             setTimeout(addDigit, 700);
         }
     } else {
         acceptingInput = false;
-        message.textContent = `Wrong! Final streak: ${currentStreak}`;
-        submitScore(currentStreak, piMode ? "pi" : "random");
+        if (correctThisSession > 0) {
+            message.textContent = `Wrong! Final streak: ${currentStreak}`;
+            submitScore(currentStreak, piMode ? "pi" : "random");
+        } else {
+            message.textContent = "Wrong! No digits correctly played this session.";
+        }
+        resetGame();
     }
 });
 
+// Control buttons
 document.getElementById("start").onclick = () => startGame(true);
 document.getElementById("piModeButton").onclick = () => startGame(false);
 document.getElementById("reset").onclick = () => resetGame();
