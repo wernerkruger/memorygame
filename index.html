@@ -1,160 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Number Memory Game</title>
+<link rel="stylesheet" href="styles.css">
 
-<style>
-/* THEME VARIABLES */
-:root {
-    --bg: #222;
-    --text: #eee;
-    --panel-bg: #333;
-    --cell-bg: #444;
-    --cell-hover: #555;
-    --flash-bg: yellow;
-    --flash-text: black;
-}
-
-.light {
-    --bg: #eee;
-    --text: #111;
-    --panel-bg: #ddd;
-    --cell-bg: #ccc;
-    --cell-hover: #bbb;
-    --flash-bg: #ff0;
-    --flash-text: #000;
-}
-
-body {
-    font-family: Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    margin: 0;
-    padding: 10px;
-}
-
-/* DESKTOP LAYOUT */
-#layout {
-    display: flex;
-    justify-content: center;
-    gap: 40px;
-}
-
-/* MOBILE RESPONSIVE */
-@media (max-width: 900px) {
-    #layout {
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
-    }
-}
-
-#leftBoard, #rightBoard {
-    width: 250px;
-    text-align: center;
-    background: var(--panel-bg);
-    padding: 10px;
-    border-radius: 8px;
-}
-
-#gameContainer {
-    width: 350px;
-    text-align: center;
-}
-
-@media (max-width: 600px) {
-    #gameContainer {
-        width: 100%;
-        max-width: 330px;
-    }
-}
-
-/* GRID */
-#grid {
-    display: grid;
-    grid-template-columns: repeat(3, 90px);
-    gap: 10px;
-    margin: 20px auto;
-}
-
-@media (max-width: 600px) {
-    #grid {
-        grid-template-columns: repeat(3, 70px);
-        gap: 8px;
-    }
-}
-
-.cell {
-    width: 90px;
-    height: 90px;
-    background: var(--cell-bg);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 2em;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background 0.2s;
-    user-select: none;
-}
-
-@media (max-width: 600px) {
-    .cell {
-        width: 70px;
-        height: 70px;
-        font-size: 1.6em;
-    }
-}
-
-.cell:hover {
-    background: var(--cell-hover);
-}
-
-.flash {
-    background: var(--flash-bg) !important;
-    color: var(--flash-text);
-}
-
-/* TABLES */
-table {
-    width: 100%;
-    margin-top: 10px;
-    border-collapse: collapse;
-    font-size: 0.95em;
-}
-
-td, th {
-    border-bottom: 1px solid #555;
-    padding: 4px;
-}
-
-/* TOP BAR BUTTONS */
-#topButtons {
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.topBtn {
-    background: var(--cell-bg);
-    color: var(--text);
-    padding: 10px 15px;
-    border-radius: 6px;
-    margin: 4px;
-    display: inline-block;
-    cursor: pointer;
-}
-.topBtn:hover {
-    background: var(--cell-hover);
-}
-
-</style>
+<!-- Firebase setup -->
+<script type="module" src="firebase.js"></script>
 </head>
-
 <body>
 
-<!-- TOP BUTTONS -->
 <div id="topButtons">
     <span class="topBtn" id="toggleSound">Sound: ON</span>
     <span class="topBtn" id="toggleTheme">Theme: Dark</span>
@@ -162,26 +18,25 @@ td, th {
 
 <div id="layout">
 
-    <!-- LEFT — RANDOM SCORES -->
+    <!-- LEFT: RANDOM HIGH SCORES -->
     <div id="leftBoard">
         <h2>Random Mode</h2>
         <h3>Top 10</h3>
         <table id="randomTable"></table>
     </div>
 
-    <!-- GAME CENTER -->
+    <!-- CENTER: GAME -->
     <div id="gameContainer">
         <h1>Number Memory Game</h1>
         <div id="scores">
             Current Streak: <span id="currentStreak">0</span><br>
             Mode: <span id="modeLabel">Random</span>
         </div>
-
         <div id="grid"></div>
-        <div id="message">Press START or PI to begin</div>
+        <div id="message">Press START or PI</div>
     </div>
 
-    <!-- RIGHT — PI SCORES -->
+    <!-- RIGHT: PI HIGH SCORES -->
     <div id="rightBoard">
         <h2>PI Mode</h2>
         <h3>Top 10</h3>
@@ -190,53 +45,88 @@ td, th {
 
 </div>
 
+<script type="module">
+/* ---------------------------------------------------
+   FIREBASE HIGH SCORE FUNCTIONS
+--------------------------------------------------- */
+const { collection, addDoc, getDocs, query, orderBy, limit } = window.firestoreTools;
+const db = window.db;
 
-<script>
-/* ----------------------------------------
-   SETTINGS (Sound + Theme)
----------------------------------------- */
+async function fetchScores(mode) {
+    const col = collection(db, mode === "pi" ? "highscores_pi" : "highscores_random");
+    const q = query(col, orderBy("score", "desc"), limit(10));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data());
+}
+
+async function submitScore(score, mode) {
+    const name = prompt("You made the top 10! Enter your name:") || "Anonymous";
+    const col = collection(db, mode === "pi" ? "highscores_pi" : "highscores_random");
+
+    await addDoc(col, { name, score });
+    await loadAndRenderTables();
+}
+
+function renderTable(id, list) {
+    const t = document.getElementById(id);
+    t.innerHTML = "<tr><th>Name</th><th>Score</th></tr>" +
+        list.map(x => `<tr><td>${x.name}</td><td>${x.score}</td></tr>`).join("");
+}
+
+async function loadAndRenderTables() {
+    const rand = await fetchScores("random");
+    const pi = await fetchScores("pi");
+    renderTable("randomTable", rand);
+    renderTable("piTable", pi);
+}
+loadAndRenderTables();
+
+/* ---------------------------------------------------
+   SOUND + THEME
+--------------------------------------------------- */
 let soundEnabled = JSON.parse(localStorage.getItem("soundEnabled") ?? "true");
 let theme = localStorage.getItem("theme") || "dark";
-
 document.body.classList.toggle("light", theme === "light");
-document.getElementById("toggleTheme").textContent = theme === "light" ? "Theme: Light" : "Theme: Dark";
 
-function toggleTheme() {
+document.getElementById("toggleTheme").textContent =
+    theme === "light" ? "Theme: Light" : "Theme: Dark";
+
+document.getElementById("toggleSound").textContent =
+    soundEnabled ? "Sound: ON" : "Sound: OFF";
+
+document.getElementById("toggleTheme").onclick = () => {
     theme = theme === "dark" ? "light" : "dark";
     localStorage.setItem("theme", theme);
     document.body.classList.toggle("light", theme === "light");
-    document.getElementById("toggleTheme").textContent = theme === "light" ? "Theme: Light" : "Theme: Dark";
-}
+    document.getElementById("toggleTheme").textContent =
+        theme === "light" ? "Theme: Light" : "Theme: Dark";
+};
 
-function toggleSound() {
+document.getElementById("toggleSound").onclick = () => {
     soundEnabled = !soundEnabled;
     localStorage.setItem("soundEnabled", soundEnabled);
-    document.getElementById("toggleSound").textContent = soundEnabled ? "Sound: ON" : "Sound: OFF";
-}
+    document.getElementById("toggleSound").textContent =
+        soundEnabled ? "Sound: ON" : "Sound: OFF";
+};
 
-document.getElementById("toggleSound").textContent = soundEnabled ? "Sound: ON" : "Sound: OFF";
-document.getElementById("toggleSound").onclick = toggleSound;
-document.getElementById("toggleTheme").onclick = toggleTheme;
-
-/* ----------------------------------------
-   SOUND
----------------------------------------- */
-function playBeepForDigit(digit) {
+function playBeepForDigit(d) {
     if (!soundEnabled) return;
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.frequency.setValueAtTime(300 + digit * 80, ctx.currentTime);
+
+    osc.frequency.value = 300 + d * 80;
     osc.connect(gain);
     gain.connect(ctx.destination);
+
     osc.start();
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
     osc.stop(ctx.currentTime + 0.35);
 }
 
-/* ----------------------------------------
-   GAME STATE
----------------------------------------- */
+/* ---------------------------------------------------
+   GAME LOGIC
+--------------------------------------------------- */
 const grid = document.getElementById("grid");
 const message = document.getElementById("message");
 const modeLabel = document.getElementById("modeLabel");
@@ -249,66 +139,15 @@ let currentStreak = 0;
 let piMode = false;
 
 const PI_DIGITS = "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819";  
-/* ----------------------------------------
-   HIGH SCORES
----------------------------------------- */
-function loadScores(key) {
-    return JSON.parse(localStorage.getItem(key) || "[]");
-}
-function saveScores(key, arr) {
-    localStorage.setItem(key, JSON.stringify(arr));
-}
 
-let randomHighScores = loadScores("randomHighScores");
-let piHighScores = loadScores("piHighScores");
-
-function trim10(arr) {
-    return arr.sort((a,b)=>b.score-a.score).slice(0,10);
-}
-
-function renderTable(id, scores) {
-    const t = document.getElementById(id);
-    t.innerHTML = "<tr><th>Name</th><th>Score</th></tr>" +
-        scores.map(s => `<tr><td>${s.name}</td><td>${s.score}</td></tr>`).join("");
-}
-
-function renderTables() {
-    renderTable("randomTable", randomHighScores);
-    renderTable("piTable", piHighScores);
-}
-
-renderTables();
-
-function checkHighScore(score, mode) {
-    const list = mode ? piHighScores : randomHighScores;
-    return (list.length < 10 || score > list[list.length - 1].score);
-}
-
-function addHighScore(score, mode) {
-    const list = mode ? piHighScores : randomHighScores;
-    const key = mode ? "piHighScores" : "randomHighScores";
-    const name = prompt("Congrats! You made the top 10.\nEnter your name:") || "Anonymous";
-    list.push({ name, score });
-    const trimmed = trim10(list);
-
-    if (mode) piHighScores = trimmed;
-    else randomHighScores = trimmed;
-
-    saveScores(key, trimmed);
-    renderTables();
-}
-
-/* ----------------------------------------
-   BUILD GRID
----------------------------------------- */
-[...Array(10).keys()].forEach(d => {
+// Build grid
+[...Array(10).keys()].forEach(n => {
     const c = document.createElement("div");
     c.className = "cell";
-    c.textContent = d;
-    c.dataset.value = d;
+    c.textContent = n;
+    c.dataset.value = n;
     grid.appendChild(c);
 });
-
 function addButton(id, label) {
     const b = document.createElement("div");
     b.className = "cell";
@@ -316,30 +155,23 @@ function addButton(id, label) {
     b.textContent = label;
     grid.appendChild(b);
 }
-
 addButton("start", "Start");
 addButton("piModeButton", "PI");
 addButton("reset", "Reset");
 
 const allCells = document.querySelectorAll(".cell");
 
-/* ----------------------------------------
-   FLASH CELL
----------------------------------------- */
 function flashCell(cell) {
     return new Promise(res => {
         cell.classList.add("flash");
         playBeepForDigit(Number(cell.dataset.value));
         setTimeout(() => {
             cell.classList.remove("flash");
-            setTimeout(res, 120);
+            setTimeout(res, 150);
         }, 450);
     });
 }
 
-/* ----------------------------------------
-   PLAY SEQUENCE
----------------------------------------- */
 async function playSequence() {
     acceptingInput = false;
     for (let d of sequence) {
@@ -347,57 +179,45 @@ async function playSequence() {
         await flashCell(cell);
     }
     acceptingInput = true;
-    message.textContent = "Now repeat it!";
+    message.textContent = "Repeat the sequence!";
 }
 
-/* ----------------------------------------
-   ADD DIGIT
----------------------------------------- */
 function addDigit() {
     let next = piMode
         ? Number(PI_DIGITS[sequence.length])
         : Math.floor(Math.random() * 10);
 
-    if (piMode && isNaN(next)) {
-        message.textContent = "End of π digits!";
-        acceptingInput = false;
-        return;
-    }
-
     sequence.push(next);
     currentStreak = sequence.length - 1;
     currentStreakEl.textContent = currentStreak;
+
     playSequence();
 }
 
-/* ----------------------------------------
-   START GAME
----------------------------------------- */
-function startGame(random=true) {
+function startGame(random = true) {
     piMode = !random;
     modeLabel.textContent = piMode ? "PI" : "Random";
+
     sequence = [];
+    userIndex = 0;
     currentStreak = 0;
     currentStreakEl.textContent = 0;
-    userIndex = 0;
 
-    message.textContent = piMode ? "PI mode: memorize digits of π!" : "Random mode started!";
+    message.textContent = piMode ? "PI Mode" : "Random Mode";
     addDigit();
 }
 
 function resetGame() {
     sequence = [];
+    userIndex = 0;
     currentStreak = 0;
     currentStreakEl.textContent = 0;
-    userIndex = 0;
     acceptingInput = false;
     message.textContent = "Game reset.";
 }
 
-/* ----------------------------------------
-   USER INPUT
----------------------------------------- */
-grid.addEventListener("click", e => {
+// Click handling
+grid.addEventListener("click", (e) => {
     const cell = e.target;
     const val = cell.dataset.value;
     if (!val || !acceptingInput) return;
@@ -414,20 +234,15 @@ grid.addEventListener("click", e => {
     } else {
         acceptingInput = false;
         message.textContent = `Wrong! Final streak: ${currentStreak}`;
-
-        if (checkHighScore(currentStreak, piMode)) {
-            addHighScore(currentStreak, piMode);
-        }
+        submitScore(currentStreak, piMode ? "pi" : "random");
     }
 });
 
-/* ----------------------------------------
-   BUTTON HANDLERS
----------------------------------------- */
 document.getElementById("start").onclick = () => startGame(true);
 document.getElementById("piModeButton").onclick = () => startGame(false);
 document.getElementById("reset").onclick = () => resetGame();
 
 </script>
+
 </body>
 </html>

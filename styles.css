@@ -1,0 +1,127 @@
+:root {
+    --bg: #222;
+    --text: #eee;
+    --panel-bg: #333;
+    --cell-bg: #444;
+    --cell-hover: #555;
+    --flash-bg: yellow;
+    --flash-text: black;
+}
+.light {
+    --bg: #eee;
+    --text: #111;
+    --panel-bg: #ddd;
+    --cell-bg: #ccc;
+    --cell-hover: #bbb;
+    --flash-bg: #ff0;
+    --flash-text: #000;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 10px;
+}
+
+#layout {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+}
+@media (max-width: 900px) {
+    #layout {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+#leftBoard, #rightBoard {
+    width: 250px;
+    background: var(--panel-bg);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+#gameContainer {
+    width: 350px;
+    text-align: center;
+}
+@media (max-width: 600px) {
+    #gameContainer {
+        width: 100%;
+        max-width: 330px;
+    }
+}
+
+#grid {
+    display: grid;
+    grid-template-columns: repeat(3, 90px);
+    gap: 10px;
+    margin: 20px auto;
+}
+@media (max-width: 600px) {
+    #grid {
+        grid-template-columns: repeat(3, 70px);
+        gap: 8px;
+    }
+}
+
+.cell {
+    width: 90px;
+    height: 90px;
+    font-size: 2em;
+    background: var(--cell-bg);
+    color: var(--text);
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    user-select: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+@media (max-width: 600px) {
+    .cell {
+        width: 70px;
+        height: 70px;
+        font-size: 1.6em;
+    }
+}
+.cell:hover {
+    background: var(--cell-hover);
+}
+
+.flash {
+    background: var(--flash-bg) !important;
+    color: var(--flash-text);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+td, th {
+    border-bottom: 1px solid #555;
+    padding: 4px;
+}
+
+#topButtons {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.topBtn {
+    background: var(--cell-bg);
+    color: var(--text);
+    padding: 10px 15px;
+    border-radius: 6px;
+    margin: 4px;
+    cursor: pointer;
+}
+.topBtn:hover {
+    background: var(--cell-hover);
+}
