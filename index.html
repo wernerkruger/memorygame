@@ -2,109 +2,174 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Number Memory Game</title>
+
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #222;
-        color: #eee;
-        margin: 0;
-        padding: 20px;
-    }
+/* THEME VARIABLES */
+:root {
+    --bg: #222;
+    --text: #eee;
+    --panel-bg: #333;
+    --cell-bg: #444;
+    --cell-hover: #555;
+    --flash-bg: yellow;
+    --flash-text: black;
+}
 
-    /* 3-column layout */
+.light {
+    --bg: #eee;
+    --text: #111;
+    --panel-bg: #ddd;
+    --cell-bg: #ccc;
+    --cell-hover: #bbb;
+    --flash-bg: #ff0;
+    --flash-text: #000;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 10px;
+}
+
+/* DESKTOP LAYOUT */
+#layout {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+}
+
+/* MOBILE RESPONSIVE */
+@media (max-width: 900px) {
     #layout {
-        display: flex;
-        justify-content: center;
-        gap: 40px;
-    }
-
-    #leftBoard, #rightBoard {
-        width: 250px;
-        text-align: center;
-    }
-
-    #gameContainer {
-        text-align: center;
-        width: 400px;
-    }
-
-    h2, h3 {
-        margin: 5px 0;
-    }
-
-    table {
-        width: 100%;
-        margin-top: 10px;
-        border-collapse: collapse;
-        font-size: 0.95em;
-    }
-
-    td, th {
-        border-bottom: 1px solid #555;
-        padding: 4px;
-    }
-
-    #grid {
-        display: grid;
-        grid-template-columns: repeat(3, 80px);
-        gap: 10px;
-        margin: 20px auto;
-    }
-
-    .cell {
-        width: 80px;
-        height: 80px;
-        background: #444;
-        display: flex;
-        justify-content: center;
+        flex-direction: column;
         align-items: center;
-        font-size: 2em;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background 0.2s;
+        gap: 20px;
     }
+}
 
-    .cell:hover {
-        background: #555;
-    }
+#leftBoard, #rightBoard {
+    width: 250px;
+    text-align: center;
+    background: var(--panel-bg);
+    padding: 10px;
+    border-radius: 8px;
+}
 
-    .flash {
-        background: yellow !important;
-        color: black;
-    }
+#gameContainer {
+    width: 350px;
+    text-align: center;
+}
 
-    #start, #reset, #piModeButton {
-        background: #888;
-        color: #000;
-        font-weight: bold;
-        font-size: 1.2em;
+@media (max-width: 600px) {
+    #gameContainer {
+        width: 100%;
+        max-width: 330px;
     }
+}
 
-    #scores {
-        margin-top: 10px;
-        font-size: 1.2em;
-    }
+/* GRID */
+#grid {
+    display: grid;
+    grid-template-columns: repeat(3, 90px);
+    gap: 10px;
+    margin: 20px auto;
+}
 
-    #message {
-        margin-top: 15px;
-        font-size: 1.2em;
+@media (max-width: 600px) {
+    #grid {
+        grid-template-columns: repeat(3, 70px);
+        gap: 8px;
     }
+}
+
+.cell {
+    width: 90px;
+    height: 90px;
+    background: var(--cell-bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2em;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+@media (max-width: 600px) {
+    .cell {
+        width: 70px;
+        height: 70px;
+        font-size: 1.6em;
+    }
+}
+
+.cell:hover {
+    background: var(--cell-hover);
+}
+
+.flash {
+    background: var(--flash-bg) !important;
+    color: var(--flash-text);
+}
+
+/* TABLES */
+table {
+    width: 100%;
+    margin-top: 10px;
+    border-collapse: collapse;
+    font-size: 0.95em;
+}
+
+td, th {
+    border-bottom: 1px solid #555;
+    padding: 4px;
+}
+
+/* TOP BAR BUTTONS */
+#topButtons {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.topBtn {
+    background: var(--cell-bg);
+    color: var(--text);
+    padding: 10px 15px;
+    border-radius: 6px;
+    margin: 4px;
+    display: inline-block;
+    cursor: pointer;
+}
+.topBtn:hover {
+    background: var(--cell-hover);
+}
+
 </style>
 </head>
 
 <body>
 
+<!-- TOP BUTTONS -->
+<div id="topButtons">
+    <span class="topBtn" id="toggleSound">Sound: ON</span>
+    <span class="topBtn" id="toggleTheme">Theme: Dark</span>
+</div>
+
 <div id="layout">
 
-    <!-- LEFT — RANDOM HIGH SCORES -->
+    <!-- LEFT — RANDOM SCORES -->
     <div id="leftBoard">
         <h2>Random Mode</h2>
         <h3>Top 10</h3>
         <table id="randomTable"></table>
     </div>
 
-    <!-- CENTER — GAME -->
+    <!-- GAME CENTER -->
     <div id="gameContainer">
         <h1>Number Memory Game</h1>
         <div id="scores">
@@ -116,7 +181,7 @@
         <div id="message">Press START or PI to begin</div>
     </div>
 
-    <!-- RIGHT — PI HIGH SCORES -->
+    <!-- RIGHT — PI SCORES -->
     <div id="rightBoard">
         <h2>PI Mode</h2>
         <h3>Top 10</h3>
@@ -125,11 +190,39 @@
 
 </div>
 
+
 <script>
-// ---------------------------
-// SOUND
-// ---------------------------
+/* ----------------------------------------
+   SETTINGS (Sound + Theme)
+---------------------------------------- */
+let soundEnabled = JSON.parse(localStorage.getItem("soundEnabled") ?? "true");
+let theme = localStorage.getItem("theme") || "dark";
+
+document.body.classList.toggle("light", theme === "light");
+document.getElementById("toggleTheme").textContent = theme === "light" ? "Theme: Light" : "Theme: Dark";
+
+function toggleTheme() {
+    theme = theme === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", theme);
+    document.body.classList.toggle("light", theme === "light");
+    document.getElementById("toggleTheme").textContent = theme === "light" ? "Theme: Light" : "Theme: Dark";
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    localStorage.setItem("soundEnabled", soundEnabled);
+    document.getElementById("toggleSound").textContent = soundEnabled ? "Sound: ON" : "Sound: OFF";
+}
+
+document.getElementById("toggleSound").textContent = soundEnabled ? "Sound: ON" : "Sound: OFF";
+document.getElementById("toggleSound").onclick = toggleSound;
+document.getElementById("toggleTheme").onclick = toggleTheme;
+
+/* ----------------------------------------
+   SOUND
+---------------------------------------- */
 function playBeepForDigit(digit) {
+    if (!soundEnabled) return;
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -141,13 +234,12 @@ function playBeepForDigit(digit) {
     osc.stop(ctx.currentTime + 0.35);
 }
 
-// ---------------------------
-// GAME STATE
-// ---------------------------
+/* ----------------------------------------
+   GAME STATE
+---------------------------------------- */
 const grid = document.getElementById("grid");
 const message = document.getElementById("message");
 const modeLabel = document.getElementById("modeLabel");
-
 const currentStreakEl = document.getElementById("currentStreak");
 
 let sequence = [];
@@ -156,15 +248,13 @@ let acceptingInput = false;
 let currentStreak = 0;
 let piMode = false;
 
-// π digits
 const PI_DIGITS = "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819";  
-// ---------------------------
-// HIGH SCORES
-// ---------------------------
+/* ----------------------------------------
+   HIGH SCORES
+---------------------------------------- */
 function loadScores(key) {
     return JSON.parse(localStorage.getItem(key) || "[]");
 }
-
 function saveScores(key, arr) {
     localStorage.setItem(key, JSON.stringify(arr));
 }
@@ -176,51 +266,47 @@ function trim10(arr) {
     return arr.sort((a,b)=>b.score-a.score).slice(0,10);
 }
 
-function renderTables() {
-    renderTable("randomTable", randomHighScores);
-    renderTable("piTable", piHighScores);
-}
-
 function renderTable(id, scores) {
     const t = document.getElementById(id);
     t.innerHTML = "<tr><th>Name</th><th>Score</th></tr>" +
         scores.map(s => `<tr><td>${s.name}</td><td>${s.score}</td></tr>`).join("");
 }
 
+function renderTables() {
+    renderTable("randomTable", randomHighScores);
+    renderTable("piTable", piHighScores);
+}
+
 renderTables();
 
 function checkHighScore(score, mode) {
     const list = mode ? piHighScores : randomHighScores;
-    if (list.length < 10) return true;
-    return score > list[list.length - 1].score;
+    return (list.length < 10 || score > list[list.length - 1].score);
 }
 
 function addHighScore(score, mode) {
-    const key = mode ? "piHighScores" : "randomHighScores";
     const list = mode ? piHighScores : randomHighScores;
-
-    const name = prompt("Congrats! You made the top 10.\nEnter your name:");
-    const entry = { name: name || "Anonymous", score };
-
-    list.push(entry);
+    const key = mode ? "piHighScores" : "randomHighScores";
+    const name = prompt("Congrats! You made the top 10.\nEnter your name:") || "Anonymous";
+    list.push({ name, score });
     const trimmed = trim10(list);
 
-    if (mode) { piHighScores = trimmed; }
-    else { randomHighScores = trimmed; }
+    if (mode) piHighScores = trimmed;
+    else randomHighScores = trimmed;
 
     saveScores(key, trimmed);
     renderTables();
 }
 
-// ---------------------------
-// BUILD GRID
-// ---------------------------
+/* ----------------------------------------
+   BUILD GRID
+---------------------------------------- */
 [...Array(10).keys()].forEach(d => {
-    const cell = document.createElement("div");
-    cell.className = "cell";
-    cell.textContent = d;
-    cell.dataset.value = d;
-    grid.appendChild(cell);
+    const c = document.createElement("div");
+    c.className = "cell";
+    c.textContent = d;
+    c.dataset.value = d;
+    grid.appendChild(c);
 });
 
 function addButton(id, label) {
@@ -237,106 +323,97 @@ addButton("reset", "Reset");
 
 const allCells = document.querySelectorAll(".cell");
 
-// ---------------------------
-// FLASH CELL
-// ---------------------------
+/* ----------------------------------------
+   FLASH CELL
+---------------------------------------- */
 function flashCell(cell) {
-    return new Promise(resolve => {
+    return new Promise(res => {
         cell.classList.add("flash");
         playBeepForDigit(Number(cell.dataset.value));
         setTimeout(() => {
             cell.classList.remove("flash");
-            setTimeout(resolve, 150);
-        }, 500);
+            setTimeout(res, 120);
+        }, 450);
     });
 }
 
-// ---------------------------
-// PLAY SEQUENCE
-// ---------------------------
+/* ----------------------------------------
+   PLAY SEQUENCE
+---------------------------------------- */
 async function playSequence() {
     acceptingInput = false;
-    for (let digit of sequence) {
-        const cell = [...allCells].find(c => c.dataset.value == digit);
+    for (let d of sequence) {
+        const cell = [...allCells].find(c => c.dataset.value == d);
         await flashCell(cell);
     }
     acceptingInput = true;
-    message.textContent = "Now repeat the sequence!";
+    message.textContent = "Now repeat it!";
 }
 
-// ---------------------------
-// ADD NEXT DIGIT
-// ---------------------------
+/* ----------------------------------------
+   ADD DIGIT
+---------------------------------------- */
 function addDigit() {
-    let next;
-    if (!piMode) {
-        next = Math.floor(Math.random() * 10);
-    } else {
-        next = Number(PI_DIGITS[sequence.length]);
-        if (isNaN(next)) {
-            message.textContent = "Reached end of π digits!";
-            acceptingInput = false;
-            return;
-        }
+    let next = piMode
+        ? Number(PI_DIGITS[sequence.length])
+        : Math.floor(Math.random() * 10);
+
+    if (piMode && isNaN(next)) {
+        message.textContent = "End of π digits!";
+        acceptingInput = false;
+        return;
     }
 
     sequence.push(next);
     currentStreak = sequence.length - 1;
     currentStreakEl.textContent = currentStreak;
-
     playSequence();
 }
 
-// ---------------------------
-// START / RESET
-// ---------------------------
+/* ----------------------------------------
+   START GAME
+---------------------------------------- */
 function startGame(random=true) {
     piMode = !random;
     modeLabel.textContent = piMode ? "PI" : "Random";
-
     sequence = [];
-    userIndex = 0;
     currentStreak = 0;
-    currentStreakEl.textContent = currentStreak;
+    currentStreakEl.textContent = 0;
+    userIndex = 0;
 
-    message.textContent = piMode
-        ? "PI Mode: Memorize π digits!"
-        : "Random Mode Started!";
-
+    message.textContent = piMode ? "PI mode: memorize digits of π!" : "Random mode started!";
     addDigit();
 }
 
 function resetGame() {
     sequence = [];
+    currentStreak = 0;
+    currentStreakEl.textContent = 0;
     userIndex = 0;
     acceptingInput = false;
-    currentStreak = 0;
-    currentStreakEl.textContent = currentStreak;
-    message.textContent = "Game reset. Press START or PI.";
+    message.textContent = "Game reset.";
 }
 
-// ---------------------------
-// USER CLICK INPUT
-// ---------------------------
-grid.addEventListener("click", (e) => {
+/* ----------------------------------------
+   USER INPUT
+---------------------------------------- */
+grid.addEventListener("click", e => {
     const cell = e.target;
     const val = cell.dataset.value;
-    if (!val) return;
-    if (!acceptingInput) return;
+    if (!val || !acceptingInput) return;
 
     playBeepForDigit(Number(val));
 
     if (Number(val) === sequence[userIndex]) {
         userIndex++;
-
         if (userIndex === sequence.length) {
             userIndex = 0;
-            message.textContent = "Correct! Adding next digit...";
-            setTimeout(addDigit, 800);
+            message.textContent = "Correct!";
+            setTimeout(addDigit, 700);
         }
     } else {
         acceptingInput = false;
-        message.textContent = `Wrong! Final streak: ${currentStreak}.`;
+        message.textContent = `Wrong! Final streak: ${currentStreak}`;
 
         if (checkHighScore(currentStreak, piMode)) {
             addHighScore(currentStreak, piMode);
@@ -344,9 +421,9 @@ grid.addEventListener("click", (e) => {
     }
 });
 
-// ---------------------------
-// BUTTON HANDLERS
-// ---------------------------
+/* ----------------------------------------
+   BUTTON HANDLERS
+---------------------------------------- */
 document.getElementById("start").onclick = () => startGame(true);
 document.getElementById("piModeButton").onclick = () => startGame(false);
 document.getElementById("reset").onclick = () => resetGame();
