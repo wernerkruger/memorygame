@@ -15,6 +15,7 @@
 
     #container {
         text-align: center;
+        max-width: 500px;
     }
 
     #grid {
@@ -46,14 +47,20 @@
         color: black;
     }
 
-    #message {
-        margin-top: 20px;
-        font-size: 1.3em;
-    }
-
-    #scores {
+    #scores, #leaderboards {
         margin-top: 10px;
         font-size: 1.1em;
+    }
+
+    table {
+        width: 100%;
+        margin-top: 10px;
+        border-collapse: collapse;
+    }
+
+    td, th {
+        border-bottom: 1px solid #555;
+        padding: 4px;
     }
 
     #start, #reset, #piMode {
@@ -70,12 +77,22 @@
     <h1>Number Memory Game</h1>
 
     <div id="scores">
-        <div>Current Streak: <span id="currentStreak">0</span></div>
-        <div>Best Streak: <span id="bestStreak">0</span></div>
+        Current Streak: <span id="currentStreak">0</span><br>
+        Mode: <span id="modeLabel">Random</span>
     </div>
 
     <div id="grid"></div>
     <div id="message">Press START or PI to begin</div>
+
+    <div id="leaderboards">
+        <h2>Top 10 Scores</h2>
+
+        <h3>Random Mode</h3>
+        <table id="randomTable"></table>
+
+        <h3>PI Mode</h3>
+        <table id="piTable"></table>
+    </div>
 </div>
 
 <script>
@@ -83,38 +100,90 @@
 // SOUND
 // ---------------------------
 function playBeepForDigit(digit) {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.frequency.setValueAtTime(300 + digit * 80, audioCtx.currentTime);
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.setValueAtTime(300 + digit * 80, ctx.currentTime);
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
     osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
-    osc.stop(audioCtx.currentTime + 0.35);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    osc.stop(ctx.currentTime + 0.35);
 }
 
 // ---------------------------
-// GAME VARIABLES
+// GAME STATE
 // ---------------------------
 const grid = document.getElementById("grid");
 const message = document.getElementById("message");
+const modeLabel = document.getElementById("modeLabel");
 
 const currentStreakEl = document.getElementById("currentStreak");
-const bestStreakEl = document.getElementById("bestStreak");
 
 let sequence = [];
 let userIndex = 0;
 let acceptingInput = false;
 let currentStreak = 0;
-let bestStreak = Number(localStorage.getItem("numberGameHighScore")) || 0;
-bestStreakEl.textContent = bestStreak;
-
 let piMode = false;
 
-// π digits (no decimal point)
+// π digits (no decimal)
 const PI_DIGITS = "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819";  
-// You can add more if you want; this is 60 digits.
+// ---------------------------
+// HIGH SCORES (top 10 each mode)
+// ---------------------------
+function loadScores(key) {
+    return JSON.parse(localStorage.getItem(key) || "[]");
+}
+
+function saveScores(key, arr) {
+    localStorage.setItem(key, JSON.stringify(arr));
+}
+
+let randomHighScores = loadScores("randomHighScores");
+let piHighScores = loadScores("piHighScores");
+
+// ensure limit 10
+function trim10(arr) {
+    return arr.sort((a,b)=>b.score-a.score).slice(0,10);
+}
+
+// Update leaderboard tables
+function renderTables() {
+    renderTable("randomTable", randomHighScores);
+    renderTable("piTable", piHighScores);
+}
+
+function renderTable(id, scores) {
+    const t = document.getElementById(id);
+    t.innerHTML = "<tr><th>Name</th><th>Score</th></tr>" +
+        scores.map(s => `<tr><td>${s.name}</td><td>${s.score}</td></tr>`).join("");
+}
+
+renderTables();
+
+// Check if new score qualifies for top10
+function checkHighScore(score, mode) {
+    const list = mode ? piHighScores : randomHighScores;
+    if (list.length < 10) return true;
+    return score > list[list.length - 1].score;
+}
+
+function addHighScore(score, mode) {
+    const key = mode ? "piHighScores" : "randomHighScores";
+    const list = mode ? piHighScores : randomHighScores;
+
+    const name = prompt("Congrats! You made the top 10.\nEnter your name:");
+    const entry = { name: name || "Anonymous", score };
+
+    list.push(entry);
+    const trimmed = trim10(list);
+
+    if (mode) { piHighScores = trimmed; }
+    else { randomHighScores = trimmed; }
+
+    saveScores(key, trimmed);
+    renderTables();
+}
 
 // ---------------------------
 // BUILD GRID
@@ -129,7 +198,7 @@ digits.forEach(d => {
     grid.appendChild(cell);
 });
 
-// Add START, RESET, and PI buttons
+// Add buttons
 function addButton(id, label) {
     const b = document.createElement("div");
     b.className = "cell";
@@ -137,8 +206,9 @@ function addButton(id, label) {
     b.textContent = label;
     grid.appendChild(b);
 }
+
 addButton("start", "Start");
-addButton("piMode", "PI");
+addButton("piModeButton", "PI");
 addButton("reset", "Reset");
 
 const allCells = document.querySelectorAll(".cell");
@@ -178,41 +248,35 @@ function addDigit() {
     if (!piMode) {
         next = Math.floor(Math.random() * 10);
     } else {
-        next = Number(PI_DIGITS[sequence.length]);  
+        next = Number(PI_DIGITS[sequence.length]);
         if (isNaN(next)) {
-            message.textContent = "You've reached the end of the π digits!";
+            message.textContent = "You've reached the end of π digits!";
             acceptingInput = false;
             return;
         }
     }
 
     sequence.push(next);
-
     currentStreak = sequence.length - 1;
     currentStreakEl.textContent = currentStreak;
 
-    if (currentStreak > bestStreak) {
-        bestStreak = currentStreak;
-        bestStreakEl.textContent = bestStreak;
-        localStorage.setItem("numberGameHighScore", bestStreak);
-    }
-
-    message.textContent = `Sequence length: ${sequence.length}`;
     playSequence();
 }
 
 // ---------------------------
-// START / PI / RESET
+// START / RESET
 // ---------------------------
 function startGame(random=true) {
     piMode = !random;
+    modeLabel.textContent = piMode ? "PI" : "Random";
+
     sequence = [];
     userIndex = 0;
     currentStreak = 0;
     currentStreakEl.textContent = currentStreak;
 
     if (piMode) {
-        message.textContent = "PI Mode: Memorize the digits of π!";
+        message.textContent = "PI Mode: Memorize π digits!";
     } else {
         message.textContent = "Random Mode Started!";
     }
@@ -230,7 +294,7 @@ function resetGame() {
 }
 
 // ---------------------------
-// USER CLICKS
+// USER CLICK INPUT
 // ---------------------------
 grid.addEventListener("click", (e) => {
     const cell = e.target;
@@ -242,20 +306,29 @@ grid.addEventListener("click", (e) => {
 
     if (Number(val) === sequence[userIndex]) {
         userIndex++;
+
         if (userIndex === sequence.length) {
             userIndex = 0;
             message.textContent = "Correct! Adding next digit...";
             setTimeout(addDigit, 800);
         }
     } else {
-        message.textContent = `Wrong! You reached a streak of ${currentStreak}. Press START or PI to try again.`;
+        // failure
         acceptingInput = false;
+        message.textContent = `Wrong! Final streak: ${currentStreak}.`;
+
+        // check for high score
+        if (checkHighScore(currentStreak, piMode)) {
+            addHighScore(currentStreak, piMode);
+        }
     }
 });
 
-// Button hooks
+// ---------------------------
+// BUTTON HANDLERS
+// ---------------------------
 document.getElementById("start").onclick = () => startGame(true);
-document.getElementById("piMode").onclick = () => startGame(false);
+document.getElementById("piModeButton").onclick = () => startGame(false);
 document.getElementById("reset").onclick = () => resetGame();
 
 </script>
