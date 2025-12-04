@@ -8,14 +8,41 @@
         font-family: Arial, sans-serif;
         background: #222;
         color: #eee;
-        display: flex;
-        justify-content: center;
-        margin-top: 40px;
+        margin: 0;
+        padding: 20px;
     }
 
-    #container {
+    /* 3-column layout */
+    #layout {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+    }
+
+    #leftBoard, #rightBoard {
+        width: 250px;
         text-align: center;
-        max-width: 500px;
+    }
+
+    #gameContainer {
+        text-align: center;
+        width: 400px;
+    }
+
+    h2, h3 {
+        margin: 5px 0;
+    }
+
+    table {
+        width: 100%;
+        margin-top: 10px;
+        border-collapse: collapse;
+        font-size: 0.95em;
+    }
+
+    td, th {
+        border-bottom: 1px solid #555;
+        padding: 4px;
     }
 
     #grid {
@@ -47,52 +74,55 @@
         color: black;
     }
 
-    #scores, #leaderboards {
-        margin-top: 10px;
-        font-size: 1.1em;
-    }
-
-    table {
-        width: 100%;
-        margin-top: 10px;
-        border-collapse: collapse;
-    }
-
-    td, th {
-        border-bottom: 1px solid #555;
-        padding: 4px;
-    }
-
-    #start, #reset, #piMode {
+    #start, #reset, #piModeButton {
         background: #888;
         color: #000;
         font-weight: bold;
+        font-size: 1.2em;
+    }
+
+    #scores {
+        margin-top: 10px;
+        font-size: 1.2em;
+    }
+
+    #message {
+        margin-top: 15px;
         font-size: 1.2em;
     }
 </style>
 </head>
 
 <body>
-<div id="container">
-    <h1>Number Memory Game</h1>
 
-    <div id="scores">
-        Current Streak: <span id="currentStreak">0</span><br>
-        Mode: <span id="modeLabel">Random</span>
+<div id="layout">
+
+    <!-- LEFT — RANDOM HIGH SCORES -->
+    <div id="leftBoard">
+        <h2>Random Mode</h2>
+        <h3>Top 10</h3>
+        <table id="randomTable"></table>
     </div>
 
-    <div id="grid"></div>
-    <div id="message">Press START or PI to begin</div>
+    <!-- CENTER — GAME -->
+    <div id="gameContainer">
+        <h1>Number Memory Game</h1>
+        <div id="scores">
+            Current Streak: <span id="currentStreak">0</span><br>
+            Mode: <span id="modeLabel">Random</span>
+        </div>
 
-    <div id="leaderboards">
-        <h2>Top 10 Scores</h2>
+        <div id="grid"></div>
+        <div id="message">Press START or PI to begin</div>
+    </div>
 
-        <h3>Random Mode</h3>
-        <table id="randomTable"></table>
-
-        <h3>PI Mode</h3>
+    <!-- RIGHT — PI HIGH SCORES -->
+    <div id="rightBoard">
+        <h2>PI Mode</h2>
+        <h3>Top 10</h3>
         <table id="piTable"></table>
     </div>
+
 </div>
 
 <script>
@@ -126,10 +156,10 @@ let acceptingInput = false;
 let currentStreak = 0;
 let piMode = false;
 
-// π digits (no decimal)
+// π digits
 const PI_DIGITS = "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819";  
 // ---------------------------
-// HIGH SCORES (top 10 each mode)
+// HIGH SCORES
 // ---------------------------
 function loadScores(key) {
     return JSON.parse(localStorage.getItem(key) || "[]");
@@ -142,12 +172,10 @@ function saveScores(key, arr) {
 let randomHighScores = loadScores("randomHighScores");
 let piHighScores = loadScores("piHighScores");
 
-// ensure limit 10
 function trim10(arr) {
     return arr.sort((a,b)=>b.score-a.score).slice(0,10);
 }
 
-// Update leaderboard tables
 function renderTables() {
     renderTable("randomTable", randomHighScores);
     renderTable("piTable", piHighScores);
@@ -161,7 +189,6 @@ function renderTable(id, scores) {
 
 renderTables();
 
-// Check if new score qualifies for top10
 function checkHighScore(score, mode) {
     const list = mode ? piHighScores : randomHighScores;
     if (list.length < 10) return true;
@@ -188,9 +215,7 @@ function addHighScore(score, mode) {
 // ---------------------------
 // BUILD GRID
 // ---------------------------
-const digits = [...Array(10).keys()];
-
-digits.forEach(d => {
+[...Array(10).keys()].forEach(d => {
     const cell = document.createElement("div");
     cell.className = "cell";
     cell.textContent = d;
@@ -198,7 +223,6 @@ digits.forEach(d => {
     grid.appendChild(cell);
 });
 
-// Add buttons
 function addButton(id, label) {
     const b = document.createElement("div");
     b.className = "cell";
@@ -250,7 +274,7 @@ function addDigit() {
     } else {
         next = Number(PI_DIGITS[sequence.length]);
         if (isNaN(next)) {
-            message.textContent = "You've reached the end of π digits!";
+            message.textContent = "Reached end of π digits!";
             acceptingInput = false;
             return;
         }
@@ -275,11 +299,9 @@ function startGame(random=true) {
     currentStreak = 0;
     currentStreakEl.textContent = currentStreak;
 
-    if (piMode) {
-        message.textContent = "PI Mode: Memorize π digits!";
-    } else {
-        message.textContent = "Random Mode Started!";
-    }
+    message.textContent = piMode
+        ? "PI Mode: Memorize π digits!"
+        : "Random Mode Started!";
 
     addDigit();
 }
@@ -313,11 +335,9 @@ grid.addEventListener("click", (e) => {
             setTimeout(addDigit, 800);
         }
     } else {
-        // failure
         acceptingInput = false;
         message.textContent = `Wrong! Final streak: ${currentStreak}.`;
 
-        // check for high score
         if (checkHighScore(currentStreak, piMode)) {
             addHighScore(currentStreak, piMode);
         }
