@@ -48,7 +48,8 @@
         <h1>Number Memory Game</h1>
         <div id="scores">
             Current Streak: <span id="currentStreak">0</span><br>
-            Mode: <span id="modeLabel">Random</span>
+            Mode: <span id="modeLabel">Random</span><br>
+            Progress: <span id="progress">- / -</span>
         </div>
         <div id="grid"></div>
         <div>
@@ -56,7 +57,8 @@
             <input type="number" id="piStart" min="0" max="1000" value="0" style="width:60px">    
         </div>
         
-        <div id="message">Press START or PI</div>
+        <div id="message">Press Random or PI</div>
+        <div id="userSequence" style="margin-top: 10px; font-size: 1.2em; min-height: 1.5em; color: var(--text);"></div>
     </div>
 
     <!-- RIGHT: PI HIGH SCORES -->
@@ -70,38 +72,143 @@
 
 <script type="module">
 /* ---------------------------------------------------
-   FIREBASE HIGH SCORE FUNCTIONS
+   OFFLINE/LOCAL STORAGE HIGH SCORE FUNCTIONS
 --------------------------------------------------- */
-const { collection, addDoc, getDocs, query, orderBy, limit } = window.firestoreTools;
-const db = window.db;
+function getLocalScores(mode) {
+    const key = mode === "pi" ? "highscores_pi_local" : "highscores_random_local";
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+}
+
+function saveLocalScore(name, score, mode) {
+    const key = mode === "pi" ? "highscores_pi_local" : "highscores_random_local";
+    const scores = getLocalScores(mode);
+    scores.push({ name, score, timestamp: Date.now() });
+    scores.sort((a, b) => b.score - a.score);
+    const top10 = scores.slice(0, 10);
+    localStorage.setItem(key, JSON.stringify(top10));
+    return top10;
+}
+
+function isOnline() {
+    return navigator.onLine && window.firebaseAvailable === true && window.db !== null && window.db !== undefined;
+}
+
+/* ---------------------------------------------------
+   FIREBASE HIGH SCORE FUNCTIONS (with offline fallback)
+--------------------------------------------------- */
 
 async function fetchScores(mode) {
-    const col = collection(db, mode === "pi" ? "highscores_pi" : "highscores_random");
-    const q = query(col, orderBy("score", "desc"), limit(10));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => d.data());
+    const localScores = getLocalScores(mode);
+    
+    // Get Firebase functions dynamically to handle timing issues
+    const firestoreTools = window.firestoreTools;
+    const db = window.db;
+    
+    // Try Firebase if online and available
+    if (navigator.onLine && db && window.firebaseAvailable === true && firestoreTools) {
+        const { collection, getDocs, query, orderBy, limit } = firestoreTools;
+        
+        if (collection && getDocs && query && orderBy && limit) {
+            try {
+                const col = collection(db, mode === "pi" ? "highscores_pi" : "highscores_random");
+                const q = query(col, orderBy("score", "desc"), limit(10));
+                const snap = await getDocs(q);
+                const firebaseScores = snap.docs.map(d => d.data());
+                
+                console.log(`Fetched ${firebaseScores.length} scores from Firebase for ${mode} mode`);
+                
+                // Merge Firebase and local scores (even if one is empty)
+                const allScores = [...localScores, ...firebaseScores];
+                // Remove duplicates (same name and score) and sort
+                const uniqueScores = [];
+                const seen = new Set();
+                allScores.sort((a, b) => b.score - a.score);
+                for (const score of allScores) {
+                    const key = `${score.name}_${score.score}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueScores.push(score);
+                    }
+                }
+                return uniqueScores.slice(0, 10);
+            } catch (error) {
+                console.warn("Failed to fetch from Firebase, using local scores:", error);
+                // Fall back to local scores
+                return localScores.length > 0 ? localScores.slice(0, 10) : [];
+            }
+        }
+    }
+    
+    // Offline or Firebase unavailable - use local scores
+    console.log(`Using local scores for ${mode} mode (${localScores.length} found)`);
+    return localScores.length > 0 ? localScores.slice(0, 10) : [];
 }
 
 async function submitScore(score, mode) {
     const name = prompt("You made the top 10! Enter your name:") || "Anonymous";
-    const col = collection(db, mode === "pi" ? "highscores_pi" : "highscores_random");
-    await addDoc(col, { name, score });
+    
+    // Always save locally first
+    saveLocalScore(name, score, mode);
+    
+    // Try to save to Firebase if online
+    const firestoreTools = window.firestoreTools;
+    const db = window.db;
+    if (navigator.onLine && db && window.firebaseAvailable === true && firestoreTools) {
+        const { collection, addDoc } = firestoreTools;
+        if (collection && addDoc) {
+            try {
+                const col = collection(db, mode === "pi" ? "highscores_pi" : "highscores_random");
+                await addDoc(col, { name, score });
+                console.log("Score submitted to Firebase successfully");
+            } catch (error) {
+                console.warn("Failed to submit to Firebase, saved locally only:", error);
+            }
+        }
+    }
+    
     await loadAndRenderTables();
 }
 
 function renderTable(id, list) {
     const t = document.getElementById(id);
+    if (list.length === 0) {
+        t.innerHTML = "<tr><td colspan='2'>No scores yet</td></tr>";
+        return;
+    }
     t.innerHTML = "<tr><th>Name</th><th>Score</th></tr>" +
         list.map(x => `<tr><td>${x.name}</td><td>${x.score}</td></tr>`).join("");
 }
 
 async function loadAndRenderTables() {
-    const rand = await fetchScores("random");
-    const pi = await fetchScores("pi");
-    renderTable("randomTable", rand);
-    renderTable("piTable", pi);
+    try {
+        const rand = await fetchScores("random");
+        const pi = await fetchScores("pi");
+        console.log("Loading scores - Random:", rand.length, "PI:", pi.length);
+        renderTable("randomTable", rand);
+        renderTable("piTable", pi);
+    } catch (error) {
+        console.error("Error loading scores:", error);
+        // Render empty tables on error
+        renderTable("randomTable", []);
+        renderTable("piTable", []);
+    }
 }
-loadAndRenderTables();
+
+// Wait a bit for Firebase to initialize, then load scores
+setTimeout(() => {
+    loadAndRenderTables();
+}, 500);
+
+// Reload scores when coming back online
+window.addEventListener("online", () => {
+    console.log("Connection restored, reloading scores...");
+    loadAndRenderTables();
+});
+
+window.addEventListener("offline", () => {
+    console.log("Connection lost, using local scores only");
+});
 
 /* ---------------------------------------------------
    SOUND + THEME
@@ -153,13 +260,34 @@ const grid = document.getElementById("grid");
 const message = document.getElementById("message");
 const modeLabel = document.getElementById("modeLabel");
 const currentStreakEl = document.getElementById("currentStreak");
+const progressEl = document.getElementById("progress");
+const userSequenceEl = document.getElementById("userSequence");
 
 let sequence = [];
 let userIndex = 0;
+let userInputSequence = [];
 let acceptingInput = false;
 let currentStreak = 0;
 let piMode = false;
 let correctThisSession = 0;
+
+function updateProgress() {
+    if (sequence.length === 0 || !acceptingInput) {
+        progressEl.textContent = "- / -";
+    } else {
+        progressEl.textContent = `${userIndex} / ${sequence.length}`;
+    }
+}
+
+function updateUserSequence() {
+    if (userInputSequence.length === 0 || !acceptingInput) {
+        userSequenceEl.textContent = "";
+        userSequenceEl.style.whiteSpace = "normal"; // Reset to normal
+    } else {
+        userSequenceEl.textContent = userInputSequence.join(" ");
+        userSequenceEl.style.whiteSpace = "normal"; // Reset to normal
+    }
+}
 
 const PI_DIGITS = "31415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819";  
 
@@ -180,7 +308,7 @@ function addButton(id, label) {
     b.textContent = label;
     grid.appendChild(b);
 }
-addButton("start", "Start");
+addButton("start", "Rnd");
 addButton("piModeButton", "PI");
 addButton("reset", "Reset");
 
@@ -200,12 +328,18 @@ function flashCell(cell) {
 
 async function playSequence() {
     acceptingInput = false;
+    userIndex = 0;
+    userInputSequence = [];
+    updateProgress();
+    updateUserSequence();
     for (let d of sequence) {
         const cell = [...allCells].find(c => c.dataset.value == d);
         await flashCell(cell);
     }
     acceptingInput = true;
     message.textContent = "Repeat the sequence!";
+    updateProgress();
+    updateUserSequence();
 }
 
 function addDigit() {
@@ -226,9 +360,12 @@ function startGame(random = true) {
 
     sequence = [];
     userIndex = 0;
+    userInputSequence = [];
     currentStreak = 0;
     currentStreakEl.textContent = 0;
     correctThisSession = 0;
+    updateProgress();
+    updateUserSequence();
 
     if (piMode) {
         const nInput = document.getElementById("piStart");
@@ -253,45 +390,117 @@ function startGame(random = true) {
 function resetGame() {
     sequence = [];
     userIndex = 0;
+    userInputSequence = [];
     currentStreak = 0;
     currentStreakEl.textContent = 0;
     correctThisSession = 0;
     acceptingInput = false;
     message.textContent = "Game reset.";
+    updateProgress();
+    updateUserSequence();
 }
 
-// ------------------- CLICK HANDLER WITH HIGHLIGHTS -------------------
-grid.addEventListener("click", (e) => {
-    const cell = e.target;
-    const val = cell.dataset.value;
-    if (!val || !acceptingInput) return;
+// ------------------- SHARED INPUT HANDLER -------------------
+function handleDigitInput(digit, cellElement = null) {
+    if (!acceptingInput || digit === null || digit === undefined) return;
 
-    playBeepForDigit(Number(val));
+    playBeepForDigit(digit);
 
-    if (Number(val) === sequence[userIndex]) {
+    if (digit === sequence[userIndex]) {
+        // Add to user input sequence
+        userInputSequence.push(digit);
+        updateUserSequence();
+        
         // Determine if this is the last digit in the sequence
         const isLast = userIndex === sequence.length - 1;
-        cell.classList.add(isLast ? "userClickLast" : "userClick");
-
-        // Remove highlight after 400ms
-        setTimeout(() => cell.classList.remove(isLast ? "userClickLast" : "userClick"), 400);
+        
+        // Highlight the cell if clicked (not keyboard input)
+        if (cellElement) {
+            cellElement.classList.add(isLast ? "userClickLast" : "userClick");
+            setTimeout(() => cellElement.classList.remove(isLast ? "userClickLast" : "userClick"), 400);
+        } else {
+            // For keyboard input, highlight the corresponding cell visually
+            const cell = [...allCells].find(c => c.dataset.value == digit);
+            if (cell) {
+                cell.classList.add(isLast ? "userClickLast" : "userClick");
+                setTimeout(() => cell.classList.remove(isLast ? "userClickLast" : "userClick"), 400);
+            }
+        }
 
         userIndex++;
+        updateProgress();
+        
         if (userIndex === sequence.length) {
             correctThisSession++; // Completed one sequence in this session
             userIndex = 0;
+            userInputSequence = [];
             message.textContent = "Correct!";
+            updateProgress();
+            updateUserSequence();
             setTimeout(addDigit, 700);
         }
     } else {
         acceptingInput = false;
+        
+        // Show feedback with last 5 digits: last 4 correct + the wrong digit they just typed
+        const last4CorrectUserDigits = userInputSequence.slice(-4);
+        const wrongDigit = digit; // The wrong digit they just typed
+        const last5UserDigits = [...last4CorrectUserDigits, wrongDigit];
+        
+        // Last 5 correct digits: last 4 they typed correctly + the correct digit they should have typed
+        const last4CorrectSequenceDigits = sequence.slice(Math.max(0, userIndex - 4), userIndex);
+        const correctDigit = sequence[userIndex]; // The correct digit they should have typed
+        const last5CorrectDigits = [...last4CorrectSequenceDigits, correctDigit];
+        
+        let feedbackText = "";
+        if (last5UserDigits.length > 0) {
+            feedbackText = `Wrong: ... ${last5UserDigits.join(" ")}`;
+        }
+        if (last5CorrectDigits.length > 0) {
+            feedbackText += feedbackText ? `\nRight: ..... ${last5CorrectDigits.join(" ")}` : `Right: ..... ${last5CorrectDigits.join(" ")}`;
+        }
+        
         if (correctThisSession > 0) {
             message.textContent = `Wrong! Final streak: ${currentStreak}`;
+            if (feedbackText) {
+                userSequenceEl.textContent = feedbackText;
+                userSequenceEl.style.whiteSpace = "pre-line"; // Allow line breaks
+            }
             submitScore(currentStreak, piMode ? "pi" : "random");
         } else {
             message.textContent = "Wrong! No digits correctly played this session.";
+            if (feedbackText) {
+                userSequenceEl.textContent = feedbackText;
+                userSequenceEl.style.whiteSpace = "pre-line"; // Allow line breaks
+            }
         }
-        resetGame();
+        updateProgress();
+        
+        // Delay reset to show feedback
+        setTimeout(() => {
+            resetGame();
+        }, 12000);
+    }
+}
+
+// ------------------- CLICK HANDLER -------------------
+grid.addEventListener("click", (e) => {
+    const cell = e.target;
+    const val = cell.dataset.value;
+    if (!val || !acceptingInput) return;
+    handleDigitInput(Number(val), cell);
+});
+
+// ------------------- KEYBOARD HANDLER -------------------
+document.addEventListener("keydown", (e) => {
+    // Only handle number keys (0-9) when accepting input
+    if (!acceptingInput) return;
+    
+    const key = e.key;
+    // Check if it's a number key (0-9) on the main keyboard or numpad
+    if (key >= "0" && key <= "9") {
+        e.preventDefault(); // Prevent default behavior
+        handleDigitInput(Number(key));
     }
 });
 

@@ -1,0 +1,13 @@
+{
+  "name": "memorygame",
+  "version": "1.0.0",
+  "description": "Number Memory Game",
+  "scripts": {
+    "start": "npx http-server -p 8000 -o",
+    "serve": "npx http-server -p 8000 -o"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
+
