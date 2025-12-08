@@ -551,15 +551,27 @@ function resetGame() {
 }
 
 async function replayLastDigit() {
-    // Only replay if we're accepting input and have a last correct digit
-    if (!acceptingInput || lastCorrectDigit === null) {
+    // Replay the very last digit of the entire sequence (the solution)
+    if (sequence.length === 0) {
+        message.textContent = "No digit to replay. Start a game first.";
+        setTimeout(() => {
+            if (acceptingInput) {
+                message.textContent = "Repeat the sequence!";
+            }
+        }, 2000);
         return;
     }
     
-    // Replay the last correct digit (flash and beep, but don't change game state)
-    const cell = cellMap.get(lastCorrectDigit);
+    // Get the last digit of the entire sequence
+    const lastDigit = sequence[sequence.length - 1];
+    const cell = cellMap.get(lastDigit);
+    
     if (cell) {
+        // Temporarily disable input acceptance during replay to prevent interference
+        const wasAccepting = acceptingInput;
+        acceptingInput = false;
         await flashCell(cell);
+        acceptingInput = wasAccepting;
     }
 }
 
@@ -657,6 +669,10 @@ async function handleDigitInput(digit, cellElement = null) {
 // ------------------- CLICK HANDLER -------------------
 grid.addEventListener("click", (e) => {
     const cell = e.target;
+    // Skip if it's a control button (they have their own handlers)
+    if (cell.id === "start" || cell.id === "piModeButton" || cell.id === "reset" || cell.id === "replayLast") {
+        return;
+    }
     const val = cell.dataset.value;
     if (!val || !acceptingInput) return;
     handleDigitInput(Number(val), cell);
@@ -679,7 +695,14 @@ document.addEventListener("keydown", (e) => {
 document.getElementById("start").onclick = () => startGame(true);
 document.getElementById("piModeButton").onclick = () => startGame(false);
 document.getElementById("reset").onclick = () => resetGame();
-document.getElementById("replayLast").onclick = () => replayLastDigit();
+const replayBtn = document.getElementById("replayLast");
+if (replayBtn) {
+    replayBtn.onclick = async () => {
+        await replayLastDigit();
+    };
+} else {
+    console.error("Replay button not found!");
+}
 
 </script>
 
