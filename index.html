@@ -30,6 +30,7 @@
 <div id="topButtons">
     <span class="topBtn" id="toggleSound">Sound: ON</span>
     <span class="topBtn" id="toggleTheme">Theme: Dark</span>
+    <span class="topBtn" id="toggleSpeed">Speed: Medium</span>
 </div>
 <br>
 <hr>
@@ -332,6 +333,8 @@ setTimeout(() => {
 --------------------------------------------------- */
 let soundEnabled = JSON.parse(localStorage.getItem("soundEnabled") ?? "true");
 let theme = localStorage.getItem("theme") || "dark";
+let speed = localStorage.getItem("speed") || "medium"; // "slow", "medium", "fast"
+
 document.body.classList.toggle("light", theme === "light");
 
 document.getElementById("toggleTheme").textContent =
@@ -339,6 +342,8 @@ document.getElementById("toggleTheme").textContent =
 
 document.getElementById("toggleSound").textContent =
     soundEnabled ? "Sound: ON" : "Sound: OFF";
+
+document.getElementById("toggleSpeed").textContent = `Speed: ${speed.charAt(0).toUpperCase() + speed.slice(1)}`;
 
 document.getElementById("toggleTheme").onclick = () => {
     theme = theme === "dark" ? "light" : "dark";
@@ -353,6 +358,19 @@ document.getElementById("toggleSound").onclick = () => {
     localStorage.setItem("soundEnabled", soundEnabled);
     document.getElementById("toggleSound").textContent =
         soundEnabled ? "Sound: ON" : "Sound: OFF";
+};
+
+document.getElementById("toggleSpeed").onclick = () => {
+    // Cycle through: slow -> medium -> fast -> slow
+    if (speed === "slow") {
+        speed = "medium";
+    } else if (speed === "medium") {
+        speed = "fast";
+    } else {
+        speed = "slow";
+    }
+    localStorage.setItem("speed", speed);
+    document.getElementById("toggleSpeed").textContent = `Speed: ${speed.charAt(0).toUpperCase() + speed.slice(1)}`;
 };
 
 // Create a single AudioContext and reuse it (much more efficient)
@@ -457,12 +475,21 @@ allCells.forEach(cell => {
 
 function flashCell(cell) {
     return new Promise(res => {
+        // Speed settings: flash duration and delay between digits
+        const speedSettings = {
+            slow: { flash: 900, delay: 300 },    // 1200ms total per digit
+            medium: { flash: 450, delay: 150 },  // 600ms total per digit (current)
+            fast: { flash: 225, delay: 75 }      // 300ms total per digit
+        };
+        
+        const timing = speedSettings[speed] || speedSettings.medium;
+        
         cell.classList.add("flash");
         playBeepForDigit(Number(cell.dataset.value));
         setTimeout(() => {
             cell.classList.remove("flash");
-            setTimeout(res, 150);
-        }, 450);
+            setTimeout(res, timing.delay);
+        }, timing.flash);
     });
 }
 
